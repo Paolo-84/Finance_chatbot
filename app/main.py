@@ -1,17 +1,16 @@
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
-from google import genai
+import google.generativeai as genai
 from config import GEMINI_API_KEY
 import json
 
+# Configuración de Gemini
+genai.configure(api_key=GEMINI_API_KEY)
 templates = Jinja2Templates(directory="templates")
 
 app = FastAPI()
-client = genai.Client()
 
-# Configura la API de Gemini
-
+# Datos de ejemplo por defecto
 datos_financieros = {
     "ingresos": 1800,
     "gastos_totales": 1350,
@@ -24,13 +23,13 @@ datos_financieros = {
     }
 }
 
+# Generar el prompt personalizado
 def generar_prompt_finanzas(datos_financieros):
     ingresos = datos_financieros["ingresos"]
     gastos = datos_financieros["gastos_totales"]
     categorias = datos_financieros["gastos_por_categoria"]
-
     categorias_str = "\n".join([f"- {k}: ${v}" for k, v in categorias.items()])
-    
+
     prompt = f"""
 Eres un asesor financiero personal con experiencia ayudando a personas a mejorar su economía.
 Un usuario te ha compartido sus datos financieros del último mes.
@@ -52,64 +51,76 @@ Por favor, responde en un solo párrafo breve y claro, usando un lenguaje positi
 """
     return prompt
 
+# Obtener respuesta personalizada a partir de datos financieros
 def chat_finanzas_personales(datos_financieros):
-
     prompt = generar_prompt_finanzas(datos_financieros)
-    response = client.models.generate_content(
-        model ='gemini-1.5-flash-latest',
-        contents= prompt
+    model = genai.GenerativeModel("gemini-1.5-flash")
+
+    response = model.generate_content(
+        [prompt],
+        generation_config=genai.types.GenerationConfig(
+            temperature=0.7,
+            max_output_tokens=512
+        )
     )
     return response.text
 
+# Obtener respuesta general para entradas libres
+def chat_with_gemini(user_input):
+    model = genai.GenerativeModel("gemini-1.5-flash")
 
+    response = model.generate_content(
+        [user_input],
+        generation_config=genai.types.GenerationConfig(
+            temperature=0.7,
+            max_output_tokens=512
+        )
+    )
+    return response.text
 
+# Chatbot CLI desde terminal
 def start_chatbot():
-    print("👋 ¡Hola, soy tu consejero financiero virtual! Escribe 'finanzas' para recibir un consejo financiero personalizado.")
+    print("👋 ¡Hola, soy tu consejero financiero virtual!")
+    print("Escribe 'finanzas' para recibir un consejo financiero personalizado.")
     print("Escribe 'bye' para salir.\n")
-    
+
     while True:
         user_input = input("You: ")
-        
-        if user_input.lower() == 'bye':
-            print("Adios! 👋")
+
+        if user_input.lower() == "bye":
+            print("Adiós 👋")
             break
-        elif user_input.lower() == 'finanzas':
+        elif user_input.lower() == "finanzas":
             try:
                 respuesta = chat_finanzas_personales(datos_financieros)
-                print(f"Consejo financiero:\n{respuesta}\n")
+                print(f"\n💡 Consejo financiero:\n{respuesta}\n")
             except Exception as e:
-                print(f"Error: {str(e)}\n")
+                print(f"❌ Error: {str(e)}\n")
         else:
             try:
                 response = chat_with_gemini(user_input)
-                print(f"Bot: {response}\n")
+                print(f"🤖 Bot: {response}\n")
             except Exception as e:
-                print(f"Error: {str(e)}\n")
+                print(f"❌ Error: {str(e)}\n")
 
-
+# Endpoint POST: análisis financiero personalizado
 @app.post("/api/chat/finanzas")
 async def chat_finanzas(request: Request):
     try:
-        raw = await request.body()              # bytes
-        datos = json.loads(raw.decode("utf-8")) # ✅ convierte a dict
-        respuesta = chat_finanzas_personales(datos)  # ahora sí es dict
+        raw = await request.body()
+        datos = json.loads(raw.decode("utf-8"))
+        respuesta = chat_finanzas_personales(datos)
         return {"response": respuesta}
     except Exception as e:
         return {"error": str(e)}
 
 
-
-@app.get("/chat/{message}")
-async def chat(message: str):
-    try:
-        response = chat_with_gemini(message)
-        return {"response": response}
-    except Exception as e:
-        return {"error": str(e)}
-
+# Solo para modo consola (terminal)
 if __name__ == "__main__":
-    start_chatbot() 
-    #uvicorn.run(app, host="127.0.0.1", port=8000)
+    start_chatbot()
+    # Para levantar como servidor API, comenta arriba y descomenta abajo:
+    # import uvicorn
+    # uvicorn.run(app, host="127.0.0.1", port=8000)
 
 # Conexión al frontend
 # Desde el frontend (JavaScript) un fetch al 
