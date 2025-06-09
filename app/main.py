@@ -1,16 +1,16 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
-import google.generativeai as genai
+from google import genai
 from config import GEMINI_API_KEY
 import json
 
 templates = Jinja2Templates(directory="templates")
 
 app = FastAPI()
+client = genai.Client()
 
 # Configura la API de Gemini
-genai.configure(api_key=GEMINI_API_KEY)
 
 datos_financieros = {
     "ingresos": 1800,
@@ -53,18 +53,15 @@ Por favor, responde en un solo párrafo breve y claro, usando un lenguaje positi
     return prompt
 
 def chat_finanzas_personales(datos_financieros):
-    model = genai.GenerativeModel('models/gemini-1.5-flash-latest')
 
     prompt = generar_prompt_finanzas(datos_financieros)
-    response = model.generate_content(prompt)
+    response = client.models.generate_content(
+        model ='gemini-1.5-flash-latest',
+        contents= prompt
+    )
     return response.text
 
 
-
-def chat_with_gemini(user_input):
-    model = genai.GenerativeModel('models/gemini-1.5-flash-latest')
-    response = model.generate_content(user_input)
-    return response.text
 
 def start_chatbot():
     print("👋 ¡Hola, soy tu consejero financiero virtual! Escribe 'finanzas' para recibir un consejo financiero personalizado.")
@@ -112,7 +109,7 @@ async def chat(message: str):
 
 if __name__ == "__main__":
     start_chatbot() 
-    # uvicorn.run(app, host="127.0.0.1", port=8000)
+    #uvicorn.run(app, host="127.0.0.1", port=8000)
 
 # Conexión al frontend
 # Desde el frontend (JavaScript) un fetch al 
