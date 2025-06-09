@@ -114,6 +114,10 @@ async def chat_finanzas(request: Request):
     except Exception as e:
         return {"error": str(e)}
 
+@app.get("/")
+def read_root():
+    return {"message": "¡Hola desde FastAPI en Render!"}
+
 
 # Solo para modo consola (terminal)
 if __name__ == "__main__":
